@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <!-- Search and Download Section -->
+    <div class="col-lg-8">
+        <!-- Search Section -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-search me-2"></i>
+                    Search YouTube Videos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search for videos...">
+                    <button class="btn btn-primary" type="button" id="searchBtn">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="searchResults" class="row g-3"></div>
+                <div id="searchLoading" class="text-center d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+                    <p class="mt-2">Searching videos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direct URL Section -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-link me-2"></i>
+                    Direct URL Download
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" id="urlInput" class="form-control" placeholder="Paste YouTube URL here...">
+                    <button class="btn btn-success" type="button" id="getInfoBtn">
+                        <i class="fas fa-info-circle"></i> Get Info
+                    </button>
+                </div>
+                
+                <!-- Video Info -->
+                <div id="videoInfo" class="d-none">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <img id="videoThumbnail" class="img-fluid rounded" alt="Video thumbnail">
+                                </div>
+                                <div class="col-md-8">
+                                    <h6 id="videoTitle" class="card-title"></h6>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-user me-1"></i>
+                                        <span id="videoUploader"></span>
+                                    </p>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-clock me-1"></i>
+                                        <span id="videoDuration"></span>
+                                    </p>
+                                    <p class="text-muted mb-3">
+                                        <i class="fas fa-eye me-1"></i>
+                                        <span id="videoViews"></span> views
+                                    </p>
+                                    
+                                    <!-- Download Options -->
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <select id="formatSelect" class="form-select form-select-sm">
+                                                <option value="video">Video + Audio</option>
+                                                <option value="audio">Audio Only</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <select id="qualitySelect" class="form-select form-select-sm">
+                                                <option value="best">Best Quality</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button id="downloadBtn" class="btn btn-primary btn-sm w-100">
+                                                <i class="fas fa-download"></i> Download
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Active Downloads -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-download me-2"></i>
+                    Active Downloads
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="activeDownloads">
+                    <p class="text-muted text-center">No active downloads</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Downloads -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Downloads
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recentDownloads">
+                    {% if recent_downloads %}
+                        {% for download in recent_downloads %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                            <div>
+                                <small class="fw-bold">{{ download.title[:50] }}{% if download.title|length > 50 %}...{% endif %}</small>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-{{ 'check-circle text-success' if download.status == 'completed' else 'times-circle text-danger' if download.status == 'failed' else 'spinner fa-spin text-primary' }}"></i>
+                                    {{ download.status.title() }}
+                                </small>
+                            </div>
+                            {% if download.status == 'completed' %}
+                            <a href="{{ url_for('download_file', download_id=download.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">No recent downloads</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Download Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-download me-2"></i>
+                    Download Progress
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div id="progressContainer">
+                    <h6 id="progressTitle" class="mb-3"></h6>
+                    <div class="progress mb-3" style="height: 20px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <small class="text-muted">Status</small>
+                            <div id="progressStatus" class="fw-bold">Starting...</div>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">Speed</small>
+                            <div id="progressSpeed" class="fw-bold">-</div>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">Size</small>
+                            <div id="progressSize" class="fw-bold">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
