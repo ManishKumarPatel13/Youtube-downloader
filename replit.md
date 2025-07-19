@@ -2,11 +2,19 @@
 
 ## Overview
 
-This is a Flask-based YouTube downloader application that allows users to search for YouTube videos and download them in various formats and qualities. The application features a web interface with real-time progress updates using WebSocket connections and stores download history in a database.
+This is a Flask-based YouTube downloader application that allows users to search for YouTube videos and download them in various formats and qualities. The application features a modern web interface with real-time progress updates via polling and stores download history in a database.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Recent Changes (2025-07-19)
+
+✓ Fixed SocketIO compatibility issues with Gunicorn by switching to polling-based progress updates
+✓ Enhanced video format extraction to provide up to 10 video quality options (144p to 4K)
+✓ Expanded audio format options to 5 different bitrate choices (57kbps to 129kbps)
+✓ Fixed application context issues in background download threads
+✓ Improved YouTube search functionality to work reliably without timeouts
 
 ## System Architecture
 
