@@ -2,7 +2,6 @@ import os
 import logging
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_socketio import SocketIO
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -13,7 +12,6 @@ class Base(DeclarativeBase):
     pass
 
 db = SQLAlchemy(model_class=Base)
-socketio = SocketIO()
 
 # Create the app
 app = Flask(__name__)
@@ -29,7 +27,6 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 # Initialize extensions
 db.init_app(app)
-socketio.init_app(app, cors_allowed_origins="*")
 
 # Create downloads directory
 os.makedirs("downloads", exist_ok=True)

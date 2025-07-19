@@ -2,12 +2,11 @@
 
 class YouTubeDownloader {
     constructor() {
-        this.socket = io();
         this.currentDownload = null;
         this.activeDownloads = new Map();
+        this.pollInterval = null;
         
         this.initializeEventListeners();
-        this.initializeSocketListeners();
     }
 
     initializeEventListeners() {
@@ -28,20 +27,6 @@ class YouTubeDownloader {
 
         // Format selection change
         document.getElementById('formatSelect').addEventListener('change', () => this.updateQualityOptions());
-    }
-
-    initializeSocketListeners() {
-        this.socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        this.socket.on('download_progress', (data) => {
-            this.updateDownloadProgress(data);
-        });
-
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-        });
     }
 
     async searchVideos() {
@@ -261,38 +246,57 @@ class YouTubeDownloader {
         const modal = new bootstrap.Modal(document.getElementById('progressModal'));
         modal.show();
 
-        // Store current download
+        // Store current download and start polling
         this.currentDownload = downloadId;
+        this.startPolling(downloadId);
+    }
+
+    startPolling(downloadId) {
+        // Clear any existing polling
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+        }
+
+        // Poll every 2 seconds
+        this.pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/poll_progress/${downloadId}`);
+                const data = await response.json();
+                this.updateDownloadProgress(data);
+
+                // Stop polling if download is completed or failed
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(this.pollInterval);
+                    this.pollInterval = null;
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+        }, 2000);
     }
 
     updateDownloadProgress(data) {
-        const { download_id, status, progress, downloaded, total, speed, error } = data;
+        const { download_id, status, progress, error } = data;
         
         // Update progress modal if it's the current download
         if (this.currentDownload === download_id) {
             const progressBar = document.getElementById('progressBar');
             const progressStatus = document.getElementById('progressStatus');
-            const progressSpeed = document.getElementById('progressSpeed');
-            const progressSize = document.getElementById('progressSize');
 
             progressBar.style.width = `${progress}%`;
             progressBar.textContent = `${progress}%`;
             progressStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-
-            if (speed) {
-                progressSpeed.textContent = this.formatSpeed(speed);
-            }
-
-            if (downloaded && total) {
-                progressSize.textContent = `${this.formatBytes(downloaded)} / ${this.formatBytes(total)}`;
-            }
 
             if (status === 'completed') {
                 progressBar.classList.remove('progress-bar-animated');
                 progressBar.classList.add('bg-success');
                 this.showAlert('Download completed successfully!', 'success');
                 setTimeout(() => {
-                    bootstrap.Modal.getInstance(document.getElementById('progressModal')).hide();
+                    const modalElement = document.getElementById('progressModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
                 }, 2000);
                 this.refreshRecentDownloads();
             } else if (status === 'failed') {

@@ -3,8 +3,7 @@ import json
 import threading
 from datetime import datetime
 from flask import render_template, request, jsonify, send_file, flash, redirect, url_for
-from flask_socketio import emit
-from app import app, db, socketio
+from app import app, db
 from models import Download
 from youtube_service import YouTubeService
 import logging
@@ -118,10 +117,13 @@ def download_file(download_id):
         download_name=os.path.basename(download.file_path)
     )
 
-@socketio.on('connect')
-def handle_connect():
-    emit('connected', {'message': 'Connected to download server'})
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    pass
+# Progress polling endpoint for real-time updates
+@app.route('/poll_progress/<int:download_id>')
+def poll_progress(download_id):
+    download = Download.query.get_or_404(download_id)
+    return jsonify({
+        'download_id': download_id,
+        'status': download.status,
+        'progress': download.progress,
+        'error': download.error_message
+    })

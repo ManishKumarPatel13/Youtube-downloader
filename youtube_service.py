@@ -2,9 +2,8 @@ import os
 import yt_dlp
 import re
 from datetime import datetime
-from app import db, socketio
+from app import db
 from models import Download
-from flask_socketio import emit
 import logging
 
 class YouTubeService:
@@ -31,22 +30,16 @@ class YouTubeService:
                 if search_results and 'entries' in search_results:
                     for entry in search_results['entries']:
                         if entry:
-                            # Get more detailed info for each video
-                            try:
-                                video_info = self.get_video_info(f"https://www.youtube.com/watch?v={entry['id']}")
-                                if video_info:
-                                    results.append(video_info)
-                            except:
-                                # Fallback to basic info
-                                results.append({
-                                    'id': entry.get('id'),
-                                    'title': entry.get('title', 'Unknown Title'),
-                                    'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
-                                    'thumbnail': entry.get('thumbnails', [{}])[-1].get('url', ''),
-                                    'duration': self._format_duration(entry.get('duration')),
-                                    'uploader': entry.get('uploader', 'Unknown'),
-                                    'view_count': entry.get('view_count', 0)
-                                })
+                            # Use basic info to avoid timeouts
+                            results.append({
+                                'id': entry.get('id'),
+                                'title': entry.get('title', 'Unknown Title'),
+                                'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
+                                'thumbnail': entry.get('thumbnails', [{}])[-1].get('url', ''),
+                                'duration': self._format_duration(entry.get('duration')),
+                                'uploader': entry.get('uploader', 'Unknown'),
+                                'view_count': entry.get('view_count', 0)
+                            })
                 
                 return results[:max_results]
         except Exception as e:
@@ -129,13 +122,6 @@ class YouTubeService:
             download.status = 'downloading'
             db.session.commit()
             
-            # Emit initial status
-            socketio.emit('download_progress', {
-                'download_id': download_id,
-                'status': 'downloading',
-                'progress': 0
-            })
-            
             def progress_hook(d):
                 if d['status'] == 'downloading':
                     try:
@@ -146,15 +132,6 @@ class YouTubeService:
                             progress = int((downloaded / total) * 100)
                             download.progress = progress
                             db.session.commit()
-                            
-                            socketio.emit('download_progress', {
-                                'download_id': download_id,
-                                'status': 'downloading',
-                                'progress': progress,
-                                'downloaded': downloaded,
-                                'total': total,
-                                'speed': d.get('speed', 0)
-                            })
                     except Exception as e:
                         logging.error(f"Progress hook error: {str(e)}")
                 
@@ -164,13 +141,6 @@ class YouTubeService:
                     download.progress = 100
                     download.completed_at = datetime.utcnow()
                     db.session.commit()
-                    
-                    socketio.emit('download_progress', {
-                        'download_id': download_id,
-                        'status': 'completed',
-                        'progress': 100,
-                        'file_path': d['filename']
-                    })
             
             # Set up download options
             if format_type == 'audio':
@@ -209,23 +179,23 @@ class YouTubeService:
             download.status = 'failed'
             download.error_message = str(e)
             db.session.commit()
-            
-            socketio.emit('download_progress', {
-                'download_id': download_id,
-                'status': 'failed',
-                'error': str(e)
-            })
     
     def _format_duration(self, duration):
         """Format duration from seconds to MM:SS or HH:MM:SS"""
         if not duration:
             return "Unknown"
         
-        hours = duration // 3600
-        minutes = (duration % 3600) // 60
-        seconds = duration % 60
-        
-        if hours > 0:
-            return f"{hours}:{minutes:02d}:{seconds:02d}"
-        else:
-            return f"{minutes}:{seconds:02d}"
+        try:
+            # Convert to int if it's a float
+            duration = int(float(duration))
+            
+            hours = duration // 3600
+            minutes = (duration % 3600) // 60
+            seconds = duration % 60
+            
+            if hours > 0:
+                return f"{hours}:{minutes:02d}:{seconds:02d}"
+            else:
+                return f"{minutes}:{seconds:02d}"
+        except (ValueError, TypeError):
+            return "Unknown"
