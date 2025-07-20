@@ -47,14 +47,14 @@ class YouTubeService:
     def get_video_info(self, url):
         """Get video information using yt-dlp with anti-bot measures"""
         try:
-            # Method 1: Try with Brave browser cookies (most effective)
-            brave_opts = {
+            # Method 1: Try with cookie file (most effective)
+            cookie_opts = {
                 'quiet': True,
                 'no_warnings': True,
-                'cookiefile': 'cookies.txt',  # Use Brave browser cookies
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'cookiefile': 'cookies.txt',  # Use cookie file
+                'user_agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Accept-Encoding': 'gzip, deflate, br',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -78,7 +78,7 @@ class YouTubeService:
             }
             
             try:
-                with yt_dlp.YoutubeDL(brave_opts) as ydl:
+                with yt_dlp.YoutubeDL(cookie_opts) as ydl:
                     info = ydl.extract_info(url, download=False)
                     if info:
                         # Process successful extraction
@@ -103,8 +103,8 @@ class YouTubeService:
                             'formats': formats[:10],  # Limit to first 10 formats
                             'uploader': info.get('uploader', 'Unknown')
                         }
-            except Exception as brave_error:
-                logging.info(f"Brave cookies failed, trying fallback: {str(brave_error)}")
+            except Exception as cookie_error:
+                logging.info(f"Cookie file failed, trying fallback: {str(cookie_error)}")
                 
             # Method 2: Fallback without cookies (enhanced anti-detection)
             ydl_opts = {
@@ -234,13 +234,13 @@ class YouTubeService:
             # Create temporary directory for downloads
             download_dir = tempfile.mkdtemp()
             
-            # Try with Brave browser cookies first
-            brave_opts = {
+            # Try with cookie file first
+            cookie_opts = {
                 'format': 'best[ext=mp4]/best' if format_type == 'mp4' else 'bestaudio[ext=m4a]/best[ext=m4a]/bestaudio',
                 'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
                 'quiet': True,
                 'no_warnings': True,
-                'cookiefile': "cookies.txt",  # Use Brave browser cookies
+                'cookiefile': 'cookies.txt',  # Use cookie file
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -267,10 +267,10 @@ class YouTubeService:
             }
             
             try:
-                with yt_dlp.YoutubeDL(brave_opts) as ydl:
+                with yt_dlp.YoutubeDL(cookie_opts) as ydl:
                     ydl.download([url])
-            except Exception as brave_error:
-                logging.info(f"Brave cookies download failed, trying fallback: {str(brave_error)}")
+            except Exception as cookie_error:
+                logging.info(f"Cookie file download failed, trying fallback: {str(cookie_error)}")
                 
                 # Fallback: Configure download options without cookies
                 ydl_opts = {
