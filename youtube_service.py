@@ -47,7 +47,66 @@ class YouTubeService:
     def get_video_info(self, url):
         """Get video information using yt-dlp with anti-bot measures"""
         try:
-            # Enhanced anti-detection method - no authentication needed
+            # Method 1: Try with Brave browser cookies (most effective)
+            brave_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'cookiesfrombrowser': ('brave',),  # Use Brave browser cookies
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0',
+                    'DNT': '1',
+                    'Sec-GPC': '1'
+                },
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'web'],
+                        'skip': ['dash', 'hls'],
+                        'player_skip': ['configs', 'webpage']
+                    }
+                }
+            }
+            
+            try:
+                with yt_dlp.YoutubeDL(brave_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    if info:
+                        # Process successful extraction
+                        formats = []
+                        if 'formats' in info:
+                            for f in info['formats']:
+                                if f.get('vcodec') != 'none' or f.get('acodec') != 'none':
+                                    format_info = {
+                                        'format_id': f.get('format_id', ''),
+                                        'ext': f.get('ext', ''),
+                                        'resolution': f.get('resolution', 'unknown'),
+                                        'filesize': f.get('filesize'),
+                                        'vcodec': f.get('vcodec', 'none'),
+                                        'acodec': f.get('acodec', 'none')
+                                    }
+                                    formats.append(format_info)
+                        
+                        return {
+                            'title': info.get('title', 'Unknown'),
+                            'duration': info.get('duration', 0),
+                            'thumbnail': info.get('thumbnail', ''),
+                            'formats': formats[:10],  # Limit to first 10 formats
+                            'uploader': info.get('uploader', 'Unknown')
+                        }
+            except Exception as brave_error:
+                logging.info(f"Brave cookies failed, trying fallback: {str(brave_error)}")
+                
+            # Method 2: Fallback without cookies (enhanced anti-detection)
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -175,12 +234,13 @@ class YouTubeService:
             # Create temporary directory for downloads
             download_dir = tempfile.mkdtemp()
             
-            # Configure download options with anti-detection measures
-            ydl_opts = {
+            # Try with Brave browser cookies first
+            brave_opts = {
                 'format': 'best[ext=mp4]/best' if format_type == 'mp4' else 'bestaudio[ext=m4a]/best[ext=m4a]/bestaudio',
                 'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
                 'quiet': True,
                 'no_warnings': True,
+                'cookiesfrombrowser': ('brave',),  # Use Brave browser cookies
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -193,12 +253,52 @@ class YouTubeService:
                     'Sec-Fetch-Mode': 'navigate',
                     'Sec-Fetch-Site': 'none',
                     'Sec-Fetch-User': '?1',
-                    'Cache-Control': 'max-age=0'
+                    'Cache-Control': 'max-age=0',
+                    'DNT': '1',
+                    'Sec-GPC': '1'
                 },
                 'extractor_args': {
                     'youtube': {
                         'skip': ['dash', 'hls'],
+                        'player_client': ['android', 'web'],
                         'player_skip': ['configs', 'webpage']
+                    }
+                }
+            }
+            
+            try:
+                with yt_dlp.YoutubeDL(brave_opts) as ydl:
+                    ydl.download([url])
+            except Exception as brave_error:
+                logging.info(f"Brave cookies download failed, trying fallback: {str(brave_error)}")
+                
+                # Fallback: Configure download options without cookies
+                ydl_opts = {
+                    'format': 'best[ext=mp4]/best' if format_type == 'mp4' else 'bestaudio[ext=m4a]/best[ext=m4a]/bestaudio',
+                    'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+                    'quiet': True,
+                    'no_warnings': True,
+                    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'none',
+                        'Sec-Fetch-User': '?1',
+                        'Cache-Control': 'max-age=0',
+                        'DNT': '1',
+                        'Sec-GPC': '1'
+                    },
+                    'extractor_args': {
+                        'youtube': {
+                            'skip': ['dash', 'hls'],
+                            'player_client': ['android', 'web'],
+                            'player_skip': ['configs', 'webpage']
                     }
                 }
             }
