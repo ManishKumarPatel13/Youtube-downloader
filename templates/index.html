@@ -98,55 +98,42 @@
         </div>
     </div>
 
-    <!-- Sidebar -->
+    <!-- Info Panel -->
     <div class="col-lg-4">
-        <!-- Active Downloads -->
+        <!-- Instructions -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-info text-white">
                 <h5 class="mb-0">
-                    <i class="fas fa-download me-2"></i>
-                    Active Downloads
+                    <i class="fas fa-info-circle me-2"></i>
+                    How to Use
                 </h5>
             </div>
             <div class="card-body">
-                <div id="activeDownloads">
-                    <p class="text-muted text-center">No active downloads</p>
-                </div>
+                <ol class="mb-0">
+                    <li>Search for videos or paste a YouTube URL</li>
+                    <li>Select video format (MP4 or MP3)</li>
+                    <li>Choose quality settings</li>
+                    <li>Click Download to save to your device</li>
+                </ol>
             </div>
         </div>
 
-        <!-- Recent Downloads -->
+        <!-- Features -->
         <div class="card shadow-sm">
-            <div class="card-header bg-secondary text-white">
+            <div class="card-header bg-success text-white">
                 <h5 class="mb-0">
-                    <i class="fas fa-history me-2"></i>
-                    Recent Downloads
+                    <i class="fas fa-star me-2"></i>
+                    Features
                 </h5>
             </div>
             <div class="card-body">
-                <div id="recentDownloads">
-                    {% if recent_downloads %}
-                        {% for download in recent_downloads %}
-                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                            <div>
-                                <small class="fw-bold">{{ download.title[:50] }}{% if download.title|length > 50 %}...{% endif %}</small>
-                                <br>
-                                <small class="text-muted">
-                                    <i class="fas fa-{{ 'check-circle text-success' if download.status == 'completed' else 'times-circle text-danger' if download.status == 'failed' else 'spinner fa-spin text-primary' }}"></i>
-                                    {{ download.status.title() }}
-                                </small>
-                            </div>
-                            {% if download.status == 'completed' %}
-                            <a href="{{ url_for('download_file', download_id=download.id) }}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-download"></i>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted text-center">No recent downloads</p>
-                    {% endif %}
-                </div>
+                <ul class="mb-0">
+                    <li>Download videos in multiple qualities</li>
+                    <li>Extract audio as MP3</li>
+                    <li>Search YouTube directly</li>
+                    <li>No registration required</li>
+                    <li>Fast and secure downloads</li>
+                </ul>
             </div>
         </div>
     </div>

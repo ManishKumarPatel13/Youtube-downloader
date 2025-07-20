@@ -7,15 +7,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: DATABASE_URL
-        fromDatabase:
-          name: youtube-downloader-db
-          property: connectionString
       - key: SESSION_SECRET
         generateValue: true
     autoDeploy: false
-
-databases:
-  - name: youtube-downloader-db
-    databaseName: youtube_downloader
-    user: youtube_user

@@ -1,14 +1,12 @@
 import os
 import yt_dlp
 import re
-from datetime import datetime
-from app import db
-from models import Download
+import tempfile
 import logging
 
 class YouTubeService:
     def __init__(self):
-        self.downloads_dir = "downloads"
+        self.downloads_dir = tempfile.mkdtemp()  # Temporary directory
         os.makedirs(self.downloads_dir, exist_ok=True)
     
     def search_videos(self, query, max_results=20):
@@ -131,75 +129,53 @@ class YouTubeService:
             logging.error(f"Video info error: {str(e)}")
             return None
     
-    def download_video(self, download_id, url, format_type='video', quality='best'):
-        """Download a YouTube video with progress tracking"""
-        from app import app
-        with app.app_context():
-            download = Download.query.get(download_id)
-            if not download:
-                return
-        
-            try:
-                download.status = 'downloading'
-                db.session.commit()
-            
-                def progress_hook(d):
-                    if d['status'] == 'downloading':
-                        try:
-                            downloaded = d.get('downloaded_bytes', 0)
-                            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                            
-                            if total > 0:
-                                progress = int((downloaded / total) * 100)
-                                download.progress = progress
-                                db.session.commit()
-                        except Exception as e:
-                            logging.error(f"Progress hook error: {str(e)}")
-                    
-                    elif d['status'] == 'finished':
-                        download.file_path = d['filename']
-                        download.status = 'completed'
-                        download.progress = 100
-                        download.completed_at = datetime.utcnow()
-                        db.session.commit()
-                
-                # Set up download options
-                if format_type == 'audio':
-                    ydl_opts = {
-                        'format': 'bestaudio/best',
-                        'outtmpl': os.path.join(self.downloads_dir, '%(title)s.%(ext)s'),
-                        'progress_hooks': [progress_hook],
-                        'postprocessors': [{
-                            'key': 'FFmpegExtractAudio',
-                            'preferredcodec': 'mp3',
-                            'preferredquality': '192',
-                        }],
-                    }
+    def download_video_direct(self, url, format_type='video', quality='best'):
+        """Download video directly and return file path"""
+        try:
+            # Set up download options
+            if format_type == 'audio':
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'outtmpl': os.path.join(self.downloads_dir, '%(title)s.%(ext)s'),
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192',
+                    }],
+                }
+            else:
+                # Video format
+                if quality == 'best':
+                    format_selector = 'best[height<=720]'
+                elif quality.endswith('p'):
+                    height = quality[:-1]
+                    format_selector = f'best[height<={height}]'
                 else:
-                    # Video format
-                    if quality == 'best':
-                        format_selector = 'best[height<=720]'
-                    elif quality.endswith('p'):
-                        height = quality[:-1]
-                        format_selector = f'best[height<={height}]'
-                    else:
-                        format_selector = 'best'
-                    
-                    ydl_opts = {
-                        'format': format_selector,
-                        'outtmpl': os.path.join(self.downloads_dir, '%(title)s.%(ext)s'),
-                        'progress_hooks': [progress_hook],
-                    }
+                    format_selector = 'best'
                 
-                # Download the video
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
+                ydl_opts = {
+                    'format': format_selector,
+                    'outtmpl': os.path.join(self.downloads_dir, '%(title)s.%(ext)s'),
+                }
+            
+            # Download the video
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+                
+                # For audio conversion, the filename might change
+                if format_type == 'audio':
+                    base_name = os.path.splitext(filename)[0]
+                    filename = f"{base_name}.mp3"
+                
+                if os.path.exists(filename):
+                    return filename
                     
-            except Exception as e:
-                logging.error(f"Download error: {str(e)}")
-                download.status = 'failed'
-                download.error_message = str(e)
-                db.session.commit()
+                return None
+                
+        except Exception as e:
+            logging.error(f"Download error: {str(e)}")
+            return None
     
     def _format_duration(self, duration):
         """Format duration from seconds to MM:SS or HH:MM:SS"""

@@ -37,11 +37,6 @@ ENV/
 .env
 .env.local
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
 # Downloads directory (will be recreated)
 downloads/
 

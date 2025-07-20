@@ -1,10 +1,7 @@
 import os
-import json
-import threading
-from datetime import datetime
+import tempfile
 from flask import render_template, request, jsonify, send_file, flash, redirect, url_for
-from app import app, db
-from models import Download
+from app import app
 from youtube_service import YouTubeService
 import logging
 
@@ -12,8 +9,8 @@ youtube_service = YouTubeService()
 
 @app.route('/')
 def index():
-    recent_downloads = Download.query.order_by(Download.created_at.desc()).limit(10).all()
-    return render_template('index.html', recent_downloads=recent_downloads)
+    # No database - no download history to show
+    return render_template('index.html')
 
 @app.route('/search', methods=['POST'])
 def search_videos():
@@ -45,7 +42,8 @@ def get_video_info():
         return jsonify({'error': 'Failed to get video information. Please check the URL.'}), 500
 
 @app.route('/download', methods=['POST'])
-def start_download():
+def download_video():
+    """Direct download without database tracking"""
     try:
         data = request.json
         url = data.get('url', '').strip()
@@ -55,75 +53,29 @@ def start_download():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
         
-        # Get video info first
-        video_info = youtube_service.get_video_info(url)
-        if not video_info:
-            return jsonify({'error': 'Could not extract video information'}), 400
+        # Download directly and return file
+        file_path = youtube_service.download_video_direct(url, format_type, quality)
         
-        # Create download record
-        download = Download(
-            video_id=video_info['id'],
-            title=video_info['title'],
-            url=url,
-            format_selected=format_type,
-            quality=quality,
-            status='pending'
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'error': 'Download failed'}), 500
+        
+        # Return the file directly
+        filename = os.path.basename(file_path)
+        
+        def remove_file(response):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+            return response
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/octet-stream'
         )
-        db.session.add(download)
-        db.session.commit()
-        
-        # Start download in background thread
-        thread = threading.Thread(
-            target=youtube_service.download_video,
-            args=(download.id, url, format_type, quality)
-        )
-        thread.daemon = True
-        thread.start()
-        
-        return jsonify({
-            'download_id': download.id,
-            'message': 'Download started successfully'
-        })
         
     except Exception as e:
         logging.error(f"Download error: {str(e)}")
-        return jsonify({'error': 'Failed to start download. Please try again.'}), 500
-
-@app.route('/download_status/<int:download_id>')
-def download_status(download_id):
-    download = Download.query.get_or_404(download_id)
-    return jsonify(download.to_dict())
-
-@app.route('/downloads')
-def download_history():
-    downloads = Download.query.order_by(Download.created_at.desc()).all()
-    return jsonify([d.to_dict() for d in downloads])
-
-@app.route('/download_file/<int:download_id>')
-def download_file(download_id):
-    download = Download.query.get_or_404(download_id)
-    
-    if download.status != 'completed' or not download.file_path:
-        flash('File not available for download', 'error')
-        return redirect(url_for('index'))
-    
-    if not os.path.exists(download.file_path):
-        flash('File not found', 'error')
-        return redirect(url_for('index'))
-    
-    return send_file(
-        download.file_path,
-        as_attachment=True,
-        download_name=os.path.basename(download.file_path)
-    )
-
-# Progress polling endpoint for real-time updates
-@app.route('/poll_progress/<int:download_id>')
-def poll_progress(download_id):
-    download = Download.query.get_or_404(download_id)
-    return jsonify({
-        'download_id': download_id,
-        'status': download.status,
-        'progress': download.progress,
-        'error': download.error_message
-    })
+        return jsonify({'error': 'Download failed. Please try again.'}), 500

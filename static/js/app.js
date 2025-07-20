@@ -203,7 +203,7 @@ class YouTubeDownloader {
         const downloadBtn = document.getElementById('downloadBtn');
         const originalText = downloadBtn.innerHTML;
         
-        downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+        downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
         downloadBtn.disabled = true;
 
         try {
@@ -215,14 +215,27 @@ class YouTubeDownloader {
                 body: JSON.stringify({ url, format, quality })
             });
 
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to start download');
+            if (response.ok) {
+                // Create download link for the file
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                
+                // Set filename based on format
+                const extension = format === 'audio' ? 'mp3' : 'mp4';
+                a.download = `${this.currentVideo.title.replace(/[^a-zA-Z0-9]/g, '_')}.${extension}`;
+                
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+                
+                this.showAlert('Download completed successfully!', 'success');
+            } else {
+                const data = await response.json();
+                throw new Error(data.error || 'Download failed');
             }
-
-            this.showAlert('Download started successfully!', 'success');
-            this.showProgressModal(data.download_id);
             
         } catch (error) {
             console.error('Download error:', error);
