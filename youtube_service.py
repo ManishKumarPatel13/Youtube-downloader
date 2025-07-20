@@ -51,6 +51,7 @@ class YouTubeService:
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
+                "user_id": os.environ.get("YOUTUBE_USER_ID"),
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
