@@ -47,12 +47,11 @@ class YouTubeService:
     def get_video_info(self, url):
         """Get video information using yt-dlp with anti-bot measures"""
         try:
-            # Primary method with comprehensive anti-detection measures
+            # Enhanced anti-detection method - no authentication needed
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
-                'username': os.environ.get("YOUTUBE_USERNAME"),
-                'password': os.environ.get("YOUTUBE_PASSWORD"),
+                # Remove username/password as they don't work for YouTube anymore
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -65,14 +64,22 @@ class YouTubeService:
                     'Sec-Fetch-Mode': 'navigate',
                     'Sec-Fetch-Site': 'none',
                     'Sec-Fetch-User': '?1',
-                    'Cache-Control': 'max-age=0'
+                    'Cache-Control': 'max-age=0',
+                    'DNT': '1',
+                    'Sec-GPC': '1'
                 },
                 'extractor_args': {
                     'youtube': {
                         'skip': ['dash', 'hls'],
+                        'player_client': ['android', 'web'],
                         'player_skip': ['configs', 'webpage']
                     }
-                }
+                },
+                # Additional anti-detection measures
+                'format_sort': ['res:720', 'ext:mp4:m4a'],
+                'writesubtitles': False,
+                'writeautomaticsub': False,
+                'extract_flat': False
             }
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
