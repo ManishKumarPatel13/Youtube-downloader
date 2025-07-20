@@ -2,10 +2,8 @@ import os
 import tempfile
 from flask import render_template, request, jsonify, send_file, flash, redirect, url_for
 from app import app
-from youtube_service import YouTubeService
+from youtube_service import youtube_service
 import logging
-
-youtube_service = YouTubeService()
 
 @app.route('/')
 def index():
@@ -89,12 +87,18 @@ def test_ytdlp():
     """Test endpoint to check yt-dlp functionality"""
     try:
         import yt_dlp
-        test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # Rick Roll - always available
+        # Use a less popular video that's less likely to trigger bot detection
+        test_url = "https://www.youtube.com/watch?v=BaW_jenozKc"  # YouTube's first video
         
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'extract_flat': True
+            'extract_flat': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -103,11 +107,19 @@ def test_ytdlp():
         return jsonify({
             'status': 'success',
             'yt_dlp_version': yt_dlp.version.__version__,
-            'test_video_title': info.get('title', 'Unknown') if info else 'Failed to extract'
+            'test_video_title': info.get('title', 'Unknown') if info else 'Failed to extract',
+            'message': 'yt-dlp is working correctly'
         })
     except Exception as e:
+        error_msg = str(e)
+        if "Sign in to confirm you're not a bot" in error_msg or "bot" in error_msg.lower():
+            status_msg = "YouTube is blocking bot requests - this is expected in production"
+        else:
+            status_msg = "yt-dlp error occurred"
+            
         return jsonify({
             'status': 'error',
-            'error': str(e),
-            'yt_dlp_version': 'unknown'
+            'error': error_msg,
+            'yt_dlp_version': getattr(yt_dlp.version, '__version__', 'unknown'),
+            'message': status_msg
         })

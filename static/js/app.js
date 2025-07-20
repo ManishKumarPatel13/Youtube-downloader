@@ -144,7 +144,18 @@ class YouTubeDownloader {
             this.displayVideoInfo(data);
         } catch (error) {
             console.error('Video info error:', error);
-            this.showAlert(error.message, 'danger');
+            let errorMessage = error.message;
+            
+            // Provide user-friendly error messages for common issues
+            if (errorMessage.includes('bot') || errorMessage.includes('Sign in')) {
+                errorMessage = 'YouTube is temporarily blocking automated requests. Please try again in a few minutes or try a different video.';
+            } else if (errorMessage.includes('private') || errorMessage.includes('unavailable')) {
+                errorMessage = 'This video is private, unavailable, or has been removed.';
+            } else if (errorMessage.includes('blocked')) {
+                errorMessage = 'This video is blocked in your region or by the uploader.';
+            }
+            
+            this.showAlert(errorMessage, 'danger');
         } finally {
             getInfoBtn.innerHTML = originalText;
             getInfoBtn.disabled = false;
@@ -239,7 +250,18 @@ class YouTubeDownloader {
             
         } catch (error) {
             console.error('Download error:', error);
-            this.showAlert(error.message, 'danger');
+            let errorMessage = error.message;
+            
+            // Provide user-friendly error messages for common issues
+            if (errorMessage.includes('bot') || errorMessage.includes('Sign in')) {
+                errorMessage = 'YouTube is temporarily blocking automated requests. Please try again in a few minutes.';
+            } else if (errorMessage.includes('private') || errorMessage.includes('unavailable')) {
+                errorMessage = 'This video is private, unavailable, or has been removed.';
+            } else if (errorMessage.includes('blocked')) {
+                errorMessage = 'This video is blocked or cannot be downloaded.';
+            }
+            
+            this.showAlert(errorMessage, 'danger');
         } finally {
             downloadBtn.innerHTML = originalText;
             downloadBtn.disabled = false;

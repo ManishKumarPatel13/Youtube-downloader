@@ -45,17 +45,30 @@ class YouTubeService:
             return []
     
     def get_video_info(self, url):
-        """Get detailed information about a YouTube video"""
+        """Get video information using yt-dlp with anti-bot measures"""
         try:
-            # Enhanced options for better compatibility
+            # Primary method with comprehensive anti-detection measures
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'referer': 'https://www.youtube.com/',
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0'
+                },
                 'extractor_args': {
                     'youtube': {
-                        'skip': ['dash', 'hls']
+                        'skip': ['dash', 'hls'],
+                        'player_skip': ['configs', 'webpage']
                     }
                 }
             }
@@ -64,156 +77,166 @@ class YouTubeService:
                 info = ydl.extract_info(url, download=False)
                 
                 if not info:
-                    logging.error(f"No video info extracted for URL: {url}")
-                    return None
+                    raise Exception("No video information found")
                 
-                # Get available formats - enhanced to show more options
-                video_formats = []
-                audio_formats = []
-                
+                # Extract available formats
+                formats = []
                 if 'formats' in info:
-                    seen_video_heights = set()
-                    seen_audio_bitrates = set()
-                    
-                    for fmt in info['formats']:
-                        # Video formats (with or without audio)
-                        if fmt.get('vcodec') != 'none' and fmt.get('height'):
-                            height = fmt.get('height')
-                            if height not in seen_video_heights:
-                                video_formats.append({
-                                    'format_id': fmt['format_id'],
-                                    'ext': fmt.get('ext', 'mp4'),
-                                    'quality': f"{height}p",
-                                    'type': 'video',
-                                    'filesize': fmt.get('filesize'),
-                                    'fps': fmt.get('fps'),
-                                    'vcodec': fmt.get('vcodec', 'unknown')
-                                })
-                                seen_video_heights.add(height)
-                        
-                        # Audio only formats
-                        elif fmt.get('acodec') != 'none' and fmt.get('vcodec') == 'none':
-                            abr = fmt.get('abr')
-                            if abr and abr not in seen_audio_bitrates:
-                                audio_formats.append({
-                                    'format_id': fmt['format_id'],
-                                    'ext': fmt.get('ext', 'mp3'),
-                                    'quality': f"{int(abr)}kbps",
-                                    'type': 'audio',
-                                    'filesize': fmt.get('filesize'),
-                                    'acodec': fmt.get('acodec', 'unknown')
-                                })
-                                seen_audio_bitrates.add(abr)
-                
-                # Sort formats by quality (highest first) and take more options
-                video_formats = sorted(video_formats, key=lambda x: int(x['quality'][:-1]), reverse=True)
-                audio_formats = sorted(audio_formats, key=lambda x: int(x['quality'][:-4]), reverse=True)
-                
-                # Add standard quality options if not present
-                standard_qualities = [2160, 1440, 1080, 720, 480, 360, 240, 144]
-                for quality in standard_qualities:
-                    if not any(f['quality'] == f'{quality}p' for f in video_formats):
-                        video_formats.append({
-                            'format_id': f'best[height<={quality}]',
-                            'ext': 'mp4',
-                            'quality': f'{quality}p',
-                            'type': 'video',
-                            'filesize': None
-                        })
+                    for f in info['formats']:
+                        if f.get('vcodec') != 'none' or f.get('acodec') != 'none':
+                            format_info = {
+                                'format_id': f.get('format_id', ''),
+                                'ext': f.get('ext', ''),
+                                'resolution': f.get('resolution', 'unknown'),
+                                'filesize': f.get('filesize'),
+                                'vcodec': f.get('vcodec', 'none'),
+                                'acodec': f.get('acodec', 'none')
+                            }
+                            formats.append(format_info)
                 
                 return {
-                    'id': info.get('id'),
-                    'title': info.get('title'),
-                    'url': url,
-                    'thumbnail': info.get('thumbnail'),
-                    'duration': self._format_duration(info.get('duration')),
-                    'uploader': info.get('uploader'),
-                    'upload_date': info.get('upload_date'),
-                    'view_count': info.get('view_count', 0),
-                    'description': info.get('description', '')[:500] + '...' if info.get('description') and len(info.get('description', '')) > 500 else info.get('description', ''),
-                    'video_formats': video_formats[:10],  # Top 10 video qualities
-                    'audio_formats': audio_formats[:5]    # Top 5 audio qualities
+                    'title': info.get('title', 'Unknown'),
+                    'duration': info.get('duration', 0),
+                    'thumbnail': info.get('thumbnail', ''),
+                    'formats': formats[:10],  # Limit to first 10 formats
+                    'uploader': info.get('uploader', 'Unknown')
                 }
+                
         except Exception as e:
-            logging.error(f"Video info error for URL {url}: {str(e)}")
-            logging.error(f"Error type: {type(e).__name__}")
+            logging.error(f"Primary extraction failed: {str(e)}")
             
-            # Try fallback with minimal options
+            # Fallback method 1: Use yt-dlp with cookies simulation
             try:
-                logging.info("Trying fallback method...")
                 fallback_opts = {
                     'quiet': True,
                     'no_warnings': True,
-                    'extract_flat': False,
-                    'format': 'best'
+                    'user_agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'extractor_args': {
+                        'youtube': {
+                            'skip': ['dash'],
+                            'player_client': ['android', 'web']
+                        }
+                    }
                 }
                 
                 with yt_dlp.YoutubeDL(fallback_opts) as ydl:
-                    basic_info = ydl.extract_info(url, download=False)
-                    if basic_info:
+                    info = ydl.extract_info(url, download=False)
+                    if info:
                         return {
-                            'id': basic_info.get('id', 'unknown'),
-                            'title': basic_info.get('title', 'Unknown Title'),
-                            'thumbnail': basic_info.get('thumbnail', ''),
-                            'duration': self._format_duration(basic_info.get('duration')),
-                            'uploader': basic_info.get('uploader', 'Unknown'),
-                            'view_count': basic_info.get('view_count', 0),
-                            'video_formats': [{'format_id': 'best', 'quality': 'best', 'ext': 'mp4', 'filesize': None}],
-                            'audio_formats': [{'format_id': 'bestaudio', 'quality': '128kbps', 'ext': 'mp3', 'filesize': None}]
+                            'title': info.get('title', 'Unknown'),
+                            'duration': info.get('duration', 0),
+                            'thumbnail': info.get('thumbnail', ''),
+                            'formats': [{'format_id': 'best', 'ext': 'mp4', 'resolution': 'best'}],
+                            'uploader': info.get('uploader', 'Unknown')
                         }
             except Exception as fallback_error:
-                logging.error(f"Fallback method also failed: {fallback_error}")
+                logging.error(f"Fallback method 1 failed: {str(fallback_error)}")
             
-            return None
-    
-    def download_video_direct(self, url, format_type='video', quality='best'):
-        """Download video directly and return file path"""
-        try:
-            # Set up download options
-            if format_type == 'audio':
-                ydl_opts = {
-                    'format': 'bestaudio/best',
-                    'outtmpl': os.path.join(self.downloads_dir, '%(title)s.%(ext)s'),
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'mp3',
-                        'preferredquality': '192',
-                    }],
+            # Fallback method 2: Minimal extraction
+            try:
+                minimal_opts = {
+                    'quiet': True,
+                    'extract_flat': False,
+                    'force_json': True,
+                    'no_check_certificates': True
                 }
+                
+                with yt_dlp.YoutubeDL(minimal_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    if info:
+                        return {
+                            'title': info.get('title', 'Video'),
+                            'duration': info.get('duration', 0),
+                            'thumbnail': info.get('thumbnail', ''),
+                            'formats': [{'format_id': 'best', 'ext': 'mp4', 'resolution': 'best'}],
+                            'uploader': info.get('uploader', 'Unknown')
+                        }
+            except Exception as minimal_error:
+                logging.error(f"Minimal extraction failed: {str(minimal_error)}")
+            
+            # If all methods fail, return a generic error
+            if "Sign in to confirm you're not a bot" in str(e) or "bot" in str(e).lower():
+                raise Exception("YouTube is blocking automated requests. Please try again later or use a different video.")
             else:
-                # Video format
-                if quality == 'best':
-                    format_selector = 'best[height<=720]'
-                elif quality.endswith('p'):
-                    height = quality[:-1]
-                    format_selector = f'best[height<={height}]'
-                else:
-                    format_selector = 'best'
-                
-                ydl_opts = {
-                    'format': format_selector,
-                    'outtmpl': os.path.join(self.downloads_dir, '%(title)s.%(ext)s'),
-                }
+                raise Exception(f"Could not extract video information: {str(e)}")
+    
+    def download_video_direct(self, url, format_type='mp4', quality='best'):
+        """Download video directly and return file path with anti-bot measures"""
+        try:
+            # Create temporary directory for downloads
+            download_dir = tempfile.mkdtemp()
             
-            # Download the video
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                filename = ydl.prepare_filename(info)
+            # Configure download options with anti-detection measures
+            ydl_opts = {
+                'format': 'best[ext=mp4]/best' if format_type == 'mp4' else 'bestaudio[ext=m4a]/best[ext=m4a]/bestaudio',
+                'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0'
+                },
+                'extractor_args': {
+                    'youtube': {
+                        'skip': ['dash', 'hls'],
+                        'player_skip': ['configs', 'webpage']
+                    }
+                }
+            }
+            
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except Exception as primary_error:
+                logging.error(f"Primary download failed: {str(primary_error)}")
                 
-                # For audio conversion, the filename might change
-                if format_type == 'audio':
-                    base_name = os.path.splitext(filename)[0]
-                    filename = f"{base_name}.mp3"
+                # Fallback download method
+                fallback_opts = {
+                    'format': 'worst[ext=mp4]/worst' if format_type == 'mp4' else 'worstaudio',
+                    'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+                    'quiet': True,
+                    'no_warnings': True,
+                    'user_agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'extractor_args': {
+                        'youtube': {
+                            'skip': ['dash'],
+                            'player_client': ['android', 'web']
+                        }
+                    }
+                }
                 
-                if os.path.exists(filename):
-                    return filename
-                    
-                return None
-                
+                with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                    ydl.download([url])
+            
+            # Find the downloaded file
+            files = os.listdir(download_dir)
+            if not files:
+                raise Exception("No file was downloaded")
+            
+            downloaded_file = os.path.join(download_dir, files[0])
+            
+            if not os.path.exists(downloaded_file):
+                raise Exception("Downloaded file not found")
+            
+            return downloaded_file
+            
         except Exception as e:
             logging.error(f"Download error: {str(e)}")
-            return None
-    
+            if "Sign in to confirm you're not a bot" in str(e) or "bot" in str(e).lower():
+                raise Exception("YouTube is blocking automated requests. Please try again later.")
+            else:
+                raise Exception(f"Download failed: {str(e)}")
+
     def _format_duration(self, duration):
         """Format duration from seconds to MM:SS or HH:MM:SS"""
         if not duration:
@@ -233,3 +256,6 @@ class YouTubeService:
                 return f"{minutes}:{seconds:02d}"
         except (ValueError, TypeError):
             return "Unknown"
+
+# Create a global instance for routes to use
+youtube_service = YouTubeService()

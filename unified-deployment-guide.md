@@ -10,7 +10,7 @@ your-project/
 │   ├── components/
 │   └── App.js
 ├── build/                # React build output
-├── templates/
+├── templates/2
 │   └── index.html        # Template that loads React
 └── static/
     └── build/            # React built files
