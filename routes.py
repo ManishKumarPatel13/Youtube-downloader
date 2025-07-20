@@ -49,9 +49,9 @@ def get_video_info():
 def download_video():
     """Direct download without database tracking"""
     try:
-        data = request.json
-        url = data.get('url', '').strip()
-        format_type = data.get('format', 'video')  # 'video' or 'audio'
+        data = request.get_json()
+        url = data.get('url')
+        format_type = data.get('format', 'mp4')
         quality = data.get('quality', 'best')
         
         if not url:
@@ -80,7 +80,7 @@ def download_video():
             mimetype='application/octet-stream'
         )
         
-        except Exception as e:
+    except Exception as e:
         logging.error(f"Download error: {str(e)}")
         return jsonify({'error': 'Download failed. Please try again.'}), 500
 
