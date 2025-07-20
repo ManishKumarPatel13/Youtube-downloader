@@ -32,14 +32,18 @@ def get_video_info():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
         
+        # Validate YouTube URL format
+        if 'youtube.com/watch' not in url and 'youtu.be/' not in url:
+            return jsonify({'error': 'Please enter a valid YouTube URL'}), 400
+        
         info = youtube_service.get_video_info(url)
         if not info:
-            return jsonify({'error': 'Could not extract video information'}), 400
+            return jsonify({'error': 'Could not extract video information. Please check the URL or try again later.'}), 400
         
         return jsonify(info)
     except Exception as e:
         logging.error(f"Video info error: {str(e)}")
-        return jsonify({'error': 'Failed to get video information. Please check the URL.'}), 500
+        return jsonify({'error': 'Failed to get video information. The video may be private, unavailable, or blocked.'}), 500
 
 @app.route('/download', methods=['POST'])
 def download_video():
@@ -76,6 +80,34 @@ def download_video():
             mimetype='application/octet-stream'
         )
         
-    except Exception as e:
+        except Exception as e:
         logging.error(f"Download error: {str(e)}")
         return jsonify({'error': 'Download failed. Please try again.'}), 500
+
+@app.route('/test_ytdlp', methods=['GET'])
+def test_ytdlp():
+    """Test endpoint to check yt-dlp functionality"""
+    try:
+        import yt_dlp
+        test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # Rick Roll - always available
+        
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': True
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(test_url, download=False)
+            
+        return jsonify({
+            'status': 'success',
+            'yt_dlp_version': yt_dlp.version.__version__,
+            'test_video_title': info.get('title', 'Unknown') if info else 'Failed to extract'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'yt_dlp_version': 'unknown'
+        })

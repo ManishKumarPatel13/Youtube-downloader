@@ -47,15 +47,24 @@ class YouTubeService:
     def get_video_info(self, url):
         """Get detailed information about a YouTube video"""
         try:
+            # Enhanced options for better compatibility
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'referer': 'https://www.youtube.com/',
+                'extractor_args': {
+                    'youtube': {
+                        'skip': ['dash', 'hls']
+                    }
+                }
             }
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 
                 if not info:
+                    logging.error(f"No video info extracted for URL: {url}")
                     return None
                 
                 # Get available formats - enhanced to show more options
@@ -126,7 +135,35 @@ class YouTubeService:
                     'audio_formats': audio_formats[:5]    # Top 5 audio qualities
                 }
         except Exception as e:
-            logging.error(f"Video info error: {str(e)}")
+            logging.error(f"Video info error for URL {url}: {str(e)}")
+            logging.error(f"Error type: {type(e).__name__}")
+            
+            # Try fallback with minimal options
+            try:
+                logging.info("Trying fallback method...")
+                fallback_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'extract_flat': False,
+                    'format': 'best'
+                }
+                
+                with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                    basic_info = ydl.extract_info(url, download=False)
+                    if basic_info:
+                        return {
+                            'id': basic_info.get('id', 'unknown'),
+                            'title': basic_info.get('title', 'Unknown Title'),
+                            'thumbnail': basic_info.get('thumbnail', ''),
+                            'duration': self._format_duration(basic_info.get('duration')),
+                            'uploader': basic_info.get('uploader', 'Unknown'),
+                            'view_count': basic_info.get('view_count', 0),
+                            'video_formats': [{'format_id': 'best', 'quality': 'best', 'ext': 'mp4', 'filesize': None}],
+                            'audio_formats': [{'format_id': 'bestaudio', 'quality': '128kbps', 'ext': 'mp3', 'filesize': None}]
+                        }
+            except Exception as fallback_error:
+                logging.error(f"Fallback method also failed: {fallback_error}")
+            
             return None
     
     def download_video_direct(self, url, format_type='video', quality='best'):

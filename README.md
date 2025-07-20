@@ -132,6 +132,51 @@ python main.py
 
 Visit `http://localhost:5000` in your browser.
 
+### Frontend Access
+- **Local**: `http://localhost:5000`
+- **Production**: Your Render app URL (e.g., `https://youtube-downloader-xyz.onrender.com`)
+- **Architecture**: Frontend and backend deployed together as one Flask app
+
+## Unified Frontend + Backend Architecture
+
+This project demonstrates **unified deployment** where frontend and backend are served from the same Flask application:
+
+### How It Works:
+```
+Single Flask App on Render
+├── Frontend (Templates + Static Files)
+│   ├── HTML templates (Jinja2)
+│   ├── CSS styling (Bootstrap + custom)
+│   └── JavaScript (Vanilla JS)
+└── Backend (Flask Routes)
+    ├── Page routes (serve HTML)
+    └── API routes (JSON responses)
+```
+
+### Benefits Over Separate Deployments:
+- ✅ **No CORS Issues**: Same domain for frontend/backend
+- ✅ **Cost Effective**: One hosting service instead of two (Vercel + Render)
+- ✅ **Simpler Deployment**: Single build and deploy process
+- ✅ **Better for MVPs**: Faster development and deployment
+- ✅ **Easier Debugging**: All logs in one place
+
+### Comparison with Your Current Setup:
+```
+❌ Your Current: Frontend (Vercel) + Backend (Render)
+   - Two deployments to manage
+   - CORS configuration needed
+   - Two hosting costs
+   - More complex setup
+
+✅ This Project: Frontend + Backend (Single Render Deployment)
+   - One deployment to manage
+   - No CORS issues
+   - Single hosting cost
+   - Simple setup
+```
+
+*See `unified-deployment-guide.md` for instructions on converting your projects to this architecture.*
+
 ## Production Notes
 
 ### Render Free Tier Benefits
